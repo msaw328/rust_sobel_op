@@ -40,27 +40,28 @@ fn main() -> io::Result<()> {
     // sobel
     let width = out_info.width as isize;
     let height = out_info.height as isize;
-    let mut sobel_buff1: Vec<f32> = vec![0.0; grayscale_float_buff.len()];
-    let mut sobel_buff2: Vec<f32> = vec![0.0; grayscale_float_buff.len()];
+    let mut sobel_buff: Vec<f32> = vec![0.0; grayscale_float_buff.len()];
 
-    let sobel_mat1: [[f32; 3]; 3] = [
+    let sobel_mat_h: [[f32; 3]; 3] = [
         [  1.0,  2.0,  1.0 ],
         [  0.0,  0.0,  0.0 ],
         [ -1.0, -2.0, -1.0 ]
     ];
 
-    let sobel_mat2: [[f32; 3]; 3] = [
+    let sobel_mat_v: [[f32; 3]; 3] = [
         [ -1.0,  0.0,  1.0 ],
         [ -2.0,  0.0,  2.0 ],
         [ -1.0,  0.0,  1.0 ]
     ];
 
+    // for each pixel
     for row in 0isize..height {
         for col in 0isize..width {
             let i = (row * width + col) as usize;
-            sobel_buff1[i] = 0.0;
-            sobel_buff2[i] = 0.0;
+            let mut sobel_part_h: f32 = 0.0;
+            let mut sobel_part_v: f32 = 0.0;
 
+            // convolution
             for x in 0..3 {
                 for y in 0..3 {
                     let j = (row + y) * width + (col + x);
@@ -69,16 +70,23 @@ fn main() -> io::Result<()> {
                     let j = j as usize;
                     let x = x as usize;
                     let y = y as usize;
-                    sobel_buff1[i] += grayscale_float_buff[j] * sobel_mat1[y][x];
-                    sobel_buff2[i] += grayscale_float_buff[j] * sobel_mat2[y][x];
+                    sobel_part_h += grayscale_float_buff[j] * sobel_mat_h[y][x];
+                    sobel_part_v += grayscale_float_buff[j] * sobel_mat_v[y][x];
                 }
             }
+
+            // combine vertical and horizontal parts
+            sobel_buff[i] = (sobel_part_h.powi(2) + sobel_part_v.powi(2)).sqrt();
         }
     }
 
-    let mut output_buff: Vec<u8> = vec![0; sobel_buff2.len()];
+    let mut output_buff: Vec<u8> = vec![0; sobel_buff.len()];
     for i in 0..output_buff.len() {
-        output_buff[i] = ((sobel_buff1[i] * 255.0).powi(2) + (sobel_buff2[i] * 255.0).powi(2)).sqrt() as u8;
+        output_buff[i] = if sobel_buff[i] * 256.0 > 255.0 {  // thresholding
+            255
+        } else {
+            (sobel_buff[i] * 256.0) as u8
+        };
     }
 
     // encode output file header
